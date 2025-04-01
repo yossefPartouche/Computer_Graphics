@@ -6,7 +6,7 @@ from abc import abstractmethod, abstractstaticmethod
 from os.path import basename
 from typing import List
 import functools
-
+import matplotlib.pyplot as plt
     
 def NI_decor(fn):
     def wrap_fn(self, *args, **kwargs):
@@ -61,8 +61,8 @@ class SeamImage:
         self.seam_balance = 0
 
         # This might serve you to keep tracking original pixel indices 
+        self.idx_map = np.zeros((self.h, self.w), dtype=int)
         self.idx_map_h, self.idx_map_v = np.meshgrid(range(self.w), range(self.h))
-        self.idx_map = np.arange(self.h * self.w).reshape(self.h, self.w) #Combind index map
 
     @NI_decor
     def rgb_to_grayscale(self, np_img):
@@ -130,15 +130,7 @@ class SeamImage:
 
     def update_ref_mat(self):
         for i, s in enumerate(self.seam_history[-1]):
-            #self.idx_map[i, s:] += 1
-                # Shift the indices in idx_map_v and idx_map_h to the left for pixels to the right of the seam
-                self.idx_map_v[i, s:self.w - 1] = self.idx_map_v[i, s + 1:self.w]
-                self.idx_map_h[i, s:self.w - 1] = self.idx_map_h[i, s + 1:self.w]
-        # Reduce the width of the maps to match the new image width
-        self.idx_map_v = self.idx_map_v[:, :self.w - 1]
-        self.idx_map_h = self.idx_map_h[:, :self.w - 1]
-
-        #self.idx_map_h[i, s:] +=
+            self.idx_map[i,s:] +=1
 
     def reinit(self):
         """
@@ -151,21 +143,12 @@ class SeamImage:
         return np.asarray(Image.open(img_path).convert(format)).astype('float32') / 255.0
 
     def paint_seams(self):
-        #print("Sesam history", self.seam_history)
         for s in self.seam_history:
             for i, s_i in enumerate(s):
                 self.cumm_mask[self.idx_map_v[i,s_i], self.idx_map_h[i,s_i]] = False
         self.cumm_mask = np.squeeze(self.cumm_mask)
         cumm_mask_rgb = np.stack([self.cumm_mask] * 3, axis=2)
-        #print("cumm_mask_rgb", cumm_mask_rgb.shape)
         self.seams_rgb = np.where(cumm_mask_rgb, self.seams_rgb, [1,0,0])
-
-        #self.mask[np.arange(self.h), seam] = False
-        #threeD_mask = np.stack([self.mask] * 3, axis=2)
-        #self.w -= 1
-        #self.resized_gs = self.resized_gs[self.mask].reshape(self.h, self.w,1)
-        #self.resized_rgb = self.resized_rgb[threeD_mask].reshape(self.h, self.w,3)
-        
 
     def seams_removal(self, num_remove: int):
         """ Iterates num_remove times and removes num_remove vertical seams
@@ -191,13 +174,18 @@ class SeamImage:
         for _ in tqdm(range(num_remove)):
             self.E = self.calc_gradient_magnitude()
             self.mask = np.ones_like(self.E, dtype=bool)
-
+            # The seam will contain 512 values (height) going from 0 --> 511
+            # where the values tell us which width index to choose from 
+            # if its (w,h) then our seam will be some like...
+            # (0,0), (0,1), (1,0).... (something,511)
+            # The first entry is what we're provided by the seam itself
             seam = self.find_minimal_seam()
+
             self.seam_history.append(seam)
-            self.remove_seam(seam)
-            self.update_ref_mat()
             if self.vis_seams:
-                self.paint_seams()
+                self.update_ref_mat()
+            self.remove_seam(seam)
+            self.paint_seams()
                 # Show the image with the seam marked in red
 
     @NI_decor
@@ -245,37 +233,35 @@ class SeamImage:
         Rotates the matrices either clockwise or counter-clockwise.
         """
         count =1 if clockwise else 3
+
+        
         self.resized_rgb = np.rot90(self.resized_rgb, count)
         self.resized_gs = np.rot90(self.resized_gs , count)
         self.E = np.rot90(self.E, count)
-        self.h, self.w = self.resized_rgb.shape[:2]
+        
         #self.resized_rgb = np.rot90(self.resized_rgb, count)
 
         # Rotate idx_map and other related attributes if they exist
-        """"
-        if hasattr(self, 'idx_map'):
-            self.idx_map = np.rot90(self.idx_map, count)
-        if hasattr(self, 'idx_map_h'):
-            self.idx_map_h = np.rot90(self.idx_map_h, count)
-        if hasattr(self, 'idx_map_v'):
-            self.idx_map_v = np.rot90(self.idx_map_v, count)
-        if hasattr(self, 'cumm_mask'):
-            self.cumm_mask = np.rot90(self.cumm_mask, count)
-        """
+        self.idx_map = np.rot90(self.idx_map, count)
+        self.cumm_mask = np.rot90(self.cumm_mask, count)
+        self.h, self.w = self.resized_rgb.shape[:2]
+        if clockwise:
+            self.idx_map = self.idx_map_h  # Horizontal
+        else:
+            self.idx_map = self.idx_map_v  # Vertical SC
 
     @NI_decor
     def seams_removal_vertical(self, num_remove: int):
         """ A wrapper for removing num_remove horizontal seams (just a recommendation)
 
         Parameters:
-            num_remove (int): umber of vertical seam to be removed
+            num_remove (int): number of vertical seam to be removed
         """
         self.seams_removal(num_remove)
 
     @NI_decor
     def seams_removal_horizontal(self, num_remove: int):
         """ Removes num_remove horizontal seams by rotating the image, removing vertical seams, and restoring the original rotation.
-
         Parameters:
             num_remove (int): number of horizontal seam to be removed
         """
@@ -354,7 +340,6 @@ class GreedySeamImage(SeamImage):
         
         #print("Greedy_seam", Greedy_seam.shape)
         return Greedy_seam
-        raise NotImplementedError("TODO: Implement GreedySeamImage.find_minimal_seam")
 
 
 class DPSeamImage(SeamImage):
