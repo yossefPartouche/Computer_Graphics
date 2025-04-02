@@ -7,6 +7,7 @@ from os.path import basename
 from typing import List
 import functools
 import matplotlib.pyplot as plt
+import pdb
     
 def NI_decor(fn):
     def wrap_fn(self, *args, **kwargs):
@@ -61,7 +62,6 @@ class SeamImage:
         self.seam_balance = 0
 
         # This might serve you to keep tracking original pixel indices 
-        self.idx_map = np.zeros((self.h, self.w), dtype=int)
         self.idx_map_h, self.idx_map_v = np.meshgrid(range(self.w), range(self.h))
 
     @NI_decor
@@ -80,9 +80,9 @@ class SeamImage:
         """
         # Pad the image with 0.5
         #rgb_img_padded = np.pad(np_img, ((1,1),(1,1),(0,0)), mode='constant',constant_values=0.5)
-        #plt.imshow(rgb_img_padded)
-        #print("below should be an image")
+        #grey_img_padded = np.dot(rgb_img_padded[..., :3], self.gs_weights)
         grey_img = np.dot(np_img, self.gs_weights)
+        #grey_img = grey_img_padded[1:-1, 1:-1]
         return grey_img
         raise NotImplementedError("TODO: Implement SeamImage.rgb_to_grayscale")
 
@@ -116,21 +116,17 @@ class SeamImage:
         Gradient_y[:, 1:] = np.abs(greyscale[:, 1:] - greyscale[:, :-1])
         Gradient_y[:, 0] = np.abs(greyscale[:, 0] - greyscale[:, 1])
 
-        #print("Gradient_y", Gradient_y)
-        # grad_horz_f[:, :-1] = self.gs[:, 1:] - self.gs[:, :-1]
-        # grad_vert_f[:-1, :] = self.gs[1:, :] - self.gs[:-1, :]
-        #^^^ we we're calculating the energy of the image of the whole image
         """ LESSON [:, 0] - select rows from [row __ :(to)row (excl) __, col 0 ]"""
         """" Calculate the absolute gradient magnitude whilst keeping the values in the range of 0 to 1 """
         abs_grad = np.sqrt(Gradient_x** 2 + Gradient_y** 2)
-        #print("abs_grad", abs_grad)
         return abs_grad
         raise NotImplementedError("TODO: Implement SeamImage.calc_gradient_magnitude")
 
 
     def update_ref_mat(self):
         for i, s in enumerate(self.seam_history[-1]):
-            self.idx_map[i,s:] +=1
+            #self.idx_map[i,s:] +=1
+            self.idx_map[i, s:] = np.roll(self.idx_map[i, s:], -1)
 
     def reinit(self):
         """
@@ -143,10 +139,13 @@ class SeamImage:
         return np.asarray(Image.open(img_path).convert(format)).astype('float32') / 255.0
 
     def paint_seams(self):
+        self.cumm_mask = np.squeeze(self.cumm_mask)
         for s in self.seam_history:
             for i, s_i in enumerate(s):
-                self.cumm_mask[self.idx_map_v[i,s_i], self.idx_map_h[i,s_i]] = False
-        self.cumm_mask = np.squeeze(self.cumm_mask)
+               v_idx =  self.idx_map_v[i,s_i]
+               h_idx =  self.idx_map_h[i,s_i]
+               self.cumm_mask[v_idx, h_idx] = False
+
         cumm_mask_rgb = np.stack([self.cumm_mask] * 3, axis=2)
         self.seams_rgb = np.where(cumm_mask_rgb, self.seams_rgb, [1,0,0])
 
@@ -180,12 +179,16 @@ class SeamImage:
             # (0,0), (0,1), (1,0).... (something,511)
             # The first entry is what we're provided by the seam itself
             seam = self.find_minimal_seam()
-
             self.seam_history.append(seam)
+
             if self.vis_seams:
                 self.update_ref_mat()
+                self.paint_seams()
             self.remove_seam(seam)
-            self.paint_seams()
+            
+        
+       # if self.vis_seams:
+                #self.paint_seams()
                 # Show the image with the seam marked in red
 
     @NI_decor
@@ -219,12 +222,12 @@ class SeamImage:
         # Update the grayscale version of the resized image
        # self.resized_gs = self.rgb_to_grayscale(self.resized_rgb)
         # Update the width of the image
-        #self.w -= 1
-        self.mask[np.arange(self.h), seam] = False
-        threeD_mask = np.stack([self.mask] * 3, axis=2)
-        self.resized_gs = self.resized_gs[self.mask].reshape(self.h, self.w-1,1)
-        self.resized_rgb = self.resized_rgb[threeD_mask].reshape(self.h, self.w-1,3)
         self.w -= 1
+        self.mask[np.arange(self.h), seam] = False
+        self.resized_gs = self.resized_gs[self.mask].reshape(self.h, self.w,1)
+        threeD_mask = np.stack([self.mask] * 3, axis=2)
+        self.resized_rgb = self.resized_rgb[threeD_mask].reshape(self.h, self.w,3)
+        #self.w -= 1
 
 
     @NI_decor
@@ -232,23 +235,26 @@ class SeamImage:
         """
         Rotates the matrices either clockwise or counter-clockwise.
         """
-        count =1 if clockwise else 3
-
-        
+        count =1 if clockwise else 3        
         self.resized_rgb = np.rot90(self.resized_rgb, count)
         self.resized_gs = np.rot90(self.resized_gs , count)
         self.E = np.rot90(self.E, count)
-        
-        #self.resized_rgb = np.rot90(self.resized_rgb, count)
-
-        # Rotate idx_map and other related attributes if they exist
-        self.idx_map = np.rot90(self.idx_map, count)
+        self.rgb = np.rot90(self.rgb, count)
+        self.gs = np.rot90(self.gs, count)
         self.cumm_mask = np.rot90(self.cumm_mask, count)
-        self.h, self.w = self.resized_rgb.shape[:2]
+        self.seams_rgb = np.rot90(self.seams_rgb, count)
+        self.idx_map_h  = np.rot90(self.idx_map_h, count)
+        self.idx_map_v  = np.rot90(self.idx_map_v, count)
+        self.h, self.w = self.w, self.h
+        self.idx_map_h, self.idx_map_v = self.idx_map_v, self.idx_map_h
+        """
         if clockwise:
             self.idx_map = self.idx_map_h  # Horizontal
         else:
+            I don't if we need this, ar this point we only call this function 
+            when we want to rotate the image clockwise so surely we know the exact rotation?
             self.idx_map = self.idx_map_v  # Vertical SC
+        """
 
     @NI_decor
     def seams_removal_vertical(self, num_remove: int):
@@ -257,6 +263,8 @@ class SeamImage:
         Parameters:
             num_remove (int): number of vertical seam to be removed
         """
+        
+        self.idx_map = self.idx_map_h
         self.seams_removal(num_remove)
 
     @NI_decor
@@ -266,6 +274,7 @@ class SeamImage:
             num_remove (int): number of horizontal seam to be removed
         """
         self.rotate_mats(clockwise=True)
+        self.idx_map = self.idx_map_v
         self.seams_removal(num_remove)
         self.rotate_mats(clockwise=False)
 
