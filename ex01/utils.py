@@ -6,8 +6,6 @@ from abc import abstractmethod, abstractstaticmethod
 from os.path import basename
 from typing import List
 import functools
-import matplotlib.pyplot as plt
-import pdb
     
 def NI_decor(fn):
     def wrap_fn(self, *args, **kwargs):
@@ -78,13 +76,14 @@ class SeamImage:
             explicitly before the conversion.
             - np.pad might be useful
         """
-        # Pad the image with 0.5
-        #rgb_img_padded = np.pad(np_img, ((1,1),(1,1),(0,0)), mode='constant',constant_values=0.5)
-        #grey_img_padded = np.dot(rgb_img_padded[..., :3], self.gs_weights)
-        grey_img = np.dot(np_img, self.gs_weights)
-        #grey_img = grey_img_padded[1:-1, 1:-1]
-        return grey_img
-        raise NotImplementedError("TODO: Implement SeamImage.rgb_to_grayscale")
+        #Pad the image with 0.5
+        np_img = np.pad(np_img, ((1, 1), (1, 1), (0, 0)), mode='constant', constant_values=0.5)
+         # Convert the RGB image to grayscale
+        greyscale_img = np.dot(np_img, self.gs_weights)
+        # Remove the padding
+        greyscale_img = greyscale_img[1:-1, 1:-1]
+        # return the grayscale image as float32
+        return greyscale_img.astype('float32')
 
     @NI_decor
     def calc_gradient_magnitude(self):
@@ -97,36 +96,35 @@ class SeamImage:
             - In order to calculate a gradient of a pixel, only its neighborhood is required.
             - keep in mind that values must be in range [0,1]
             - np.gradient or other off-the-shelf tools are NOT allowed, however feel free to compare yourself to them
+        create an matrix of the same size as our greyscale image
         """
-        """ create an matrix of the same size as our greyscale image
-        """
+        # Extract the single grayscale channel from the (h, w, 1) image.
         greyscale = self.resized_gs[..., 0]
-        # create gradient matrices
-        # will produce matrices containing values like this[[[0.], [0.] [0.] -- DON'T WORRY ABOUT THIS
-        Gradient_x = np.zeros_like(greyscale)
-        Gradient_y = np.zeros_like(greyscale)
-        """ For x-axis Energy we need to calculate the difference between the pixel and its neighbor below
+        # create gradient matrices the same shape as the grayscale image
+        # will produce matrices containing values like this[[[0.], [0.] [0.] -- Equivelant to [0,0,0]]
+        horizontal_diff = np.zeros_like(greyscale)
+        vertical_diff = np.zeros_like(greyscale)
+        """ 
+        For x-axis Energy we need to calculate the difference between the pixel and its neighbor below
         if we think about it, we only are able to identify a horizontal edge by checking vertical difference"""
         """ start|  |  |  |y | x | end """
-        Gradient_x[-1] = np.abs(greyscale[-1] - greyscale[-2])
-        Gradient_x[:-1] = np.abs(greyscale[:-1]- greyscale[1:])
-
-        #print("Gradient_x", Gradient_x)
-
-        Gradient_y[:, 1:] = np.abs(greyscale[:, 1:] - greyscale[:, :-1])
-        Gradient_y[:, 0] = np.abs(greyscale[:, 0] - greyscale[:, 1])
+        # Calculate the derivative of the grayscale image in the x and y directions
+        horizontal_diff[:, :-1] = greyscale[:, 1:] - greyscale[:, :-1] # chnaged to use resized gs 
+        vertical_diff[:-1, :] = greyscale[1:, :] - greyscale[:-1, :]
 
         """ LESSON [:, 0] - select rows from [row __ :(to)row (excl) __, col 0 ]"""
-        """" Calculate the absolute gradient magnitude whilst keeping the values in the range of 0 to 1 """
-        abs_grad = np.sqrt(Gradient_x** 2 + Gradient_y** 2)
-        return abs_grad
-        raise NotImplementedError("TODO: Implement SeamImage.calc_gradient_magnitude")
+        # Calculate the gradient magnitude and scale it to the range [0,1]
+        gradient = np.sqrt(horizontal_diff ** 2 + vertical_diff ** 2)
+        #not surre if this is needed
+        gradient = np.clip(gradient, 0, 1)
+        # return the gradient magnitude image without the padded values
+        return gradient.astype('float32')
 
 
     def update_ref_mat(self):
-        for i, s in enumerate(self.seam_history[-1]):
-            #self.idx_map[i,s:] +=1
-            self.idx_map[i, s:] = np.roll(self.idx_map[i, s:], -1)
+        seam = self.seam_history[-1]
+        for i, seam_idx in enumerate(seam):
+            self.idx_map[i, seam_idx:] = np.roll(self.idx_map[i, seam_idx:], -1)
 
     def reinit(self):
         """
@@ -139,29 +137,12 @@ class SeamImage:
         return np.asarray(Image.open(img_path).convert(format)).astype('float32') / 255.0
 
     def paint_seams(self):
-        self.cumm_mask = np.squeeze(self.cumm_mask)
-        for s_idx, s in enumerate(self.seam_history):
-            #print(f"Processing seam {s_idx}, length: {len(s)}")
+        for s in enumerate(self.seam_history):
             for i, s_i in enumerate(s):
-                #print(f"  Checking i={i}, s_i={s_i}")
-                #pdb.set_trace()
-
-                """
-                    # ✅ BEFORE accessing, check index bounds
-                if i >= self.idx_map_v.shape[0]:
-                    print(f"⚠️ ERROR: i={i} out of bounds for axis 0 (size={self.idx_map_v.shape[0]})")
-                    return
-
-                if s_i >= self.idx_map_v.shape[1]:  
-                    print(f"⚠️ ERROR: s_i={s_i} out of bounds for axis 1 (size={self.idx_map_v.shape[1]})")
-                    return
-                """
-                v_idx =  self.idx_map_v[i,s_i]
-                h_idx =  self.idx_map_h[i, s_i]
-                self.cumm_mask[v_idx, h_idx] = False
-
-        #cumm_mask_rgb = np.stack([self.cumm_mask] * 3, axis=2)
-        #self.seams_rgb = np.where(cumm_mask_rgb, self.seams_rgb, [1,0,0])
+                self.cumm_mask[self.idx_map_v[i,s_i], self.idx_map_h[i,s_i]] = False
+        new_mask = np.squeeze(self.cumm_mask, axis=2)
+        cumm_mask_rgb = np.stack([new_mask] * 3, axis=2)
+        self.seams_rgb = np.where(cumm_mask_rgb, self.seams_rgb, [1,0,0])
 
     def seams_removal(self, num_remove: int):
         """ Iterates num_remove times and removes num_remove vertical seams
@@ -185,8 +166,10 @@ class SeamImage:
             - visualize the original image with removed seams marked in red (for comparison)
         """
         for _ in tqdm(range(num_remove)):
+            # Update the energy matrix and mask
             self.E = self.calc_gradient_magnitude()
             self.mask = np.ones_like(self.E, dtype=bool)
+
             # The seam will contain 512 values (height) going from 0 --> 511
             # where the values tell us which width index to choose from 
             # if its (w,h) then our seam will be some like...
@@ -196,11 +179,9 @@ class SeamImage:
             self.seam_history.append(seam)
             if self.vis_seams:
                 self.update_ref_mat()
+                self.paint_seams()
+                self.seam_history = []
             self.remove_seam(seam)
-        if self.vis_seams: 
-            self.paint_seams()
-            cumm_mask_rgb = np.stack([self.cumm_mask] * 3, axis=2)
-            self.seams_rgb = np.where(cumm_mask_rgb, self.seams_rgb, [1,0,0])
 
     @NI_decor
     def find_minimal_seam(self) -> List[int]:
@@ -209,7 +190,6 @@ class SeamImage:
         Returns:
             The found seam, represented as a list of indexes
         """
-        return GreedySeamImage.find_minimal_seam()
         raise NotImplementedError("TODO: Implement SeamImage.find_minimal_seam in one of the subclasses")
 
 
@@ -224,21 +204,17 @@ class SeamImage:
 
         :arg seam: The seam to remove
         """
-        # Update the mask based on the seam
-        #self.mask[np.arange(self.h), seam] = False
-
-        # Apply the mask to create the resized RGB image
-        #self.resized_rgb = np.delete(self.rgb, seam, axis=1)
-
-        # Update the grayscale version of the resized image
-       # self.resized_gs = self.rgb_to_grayscale(self.resized_rgb)
-        # Update the width of the image
+        # Set the values of the seam to False
+        for i, s_i in enumerate(seam):
+            self.mask[i, s_i] = False
+        # decrease the width of the image
         self.w -= 1
-        self.mask[np.arange(self.h), seam] = False
-        self.resized_gs = self.resized_gs[self.mask].reshape(self.h, self.w,1)
+        #self.mask[np.arange(self.h), seam] = False
+        # Extend the seam mask to support 3 channels
         threeD_mask = np.stack([self.mask] * 3, axis=2)
+        # Remove the seam from the grayscale image and rgb images
+        self.resized_gs = self.resized_gs[self.mask].reshape(self.h, self.w,1)
         self.resized_rgb = self.resized_rgb[threeD_mask].reshape(self.h, self.w,3)
-        #self.w -= 1
 
 
     @NI_decor
@@ -246,26 +222,31 @@ class SeamImage:
         """
         Rotates the matrices either clockwise or counter-clockwise.
         """
-        count =1 if clockwise else 3        
-        self.resized_rgb = np.rot90(self.resized_rgb, count)
-        self.resized_gs = np.rot90(self.resized_gs , count)
-        self.E = np.rot90(self.E, count)
+        # define the number of times to rotate the matrices
+        count = -1 if clockwise else 1 
+        
+        # Rotate the original RGB/GS & Energy image
         self.rgb = np.rot90(self.rgb, count)
         self.gs = np.rot90(self.gs, count)
+        self.E = np.rot90(self.E, count)
+
+        # Rotate the resized RGB/GS image
+        self.resized_rgb = np.rot90(self.resized_rgb, count)
+        self.resized_gs = np.rot90(self.resized_gs, count)
+
+        # Update the h & w of the image
+        self.h, self.w = self.w, self.h
+
+        # rotate the index mapping matrices
+        self.idx_map_v = np.rot90(self.idx_map_v, -count)
+        self.idx_map_h = np.rot90(self.idx_map_h, count)
+        # Update the seam index mapping
+        self.idx_map_h, self.idx_map_v = self.idx_map_v, self.idx_map_h
+
+        # Update the cumulative mask & seam visualization
         self.cumm_mask = np.rot90(self.cumm_mask, count)
         self.seams_rgb = np.rot90(self.seams_rgb, count)
-        self.idx_map_h  = np.rot90(self.idx_map_h, count)
-        self.idx_map_v  = np.rot90(self.idx_map_v, count)
-        self.h, self.w = self.w, self.h
-        self.idx_map_h, self.idx_map_v = self.idx_map_v, self.idx_map_h
-        """
-        if clockwise:
-            self.idx_map = self.idx_map_h  # Horizontal
-        else:
-            I don't if we need this, ar this point we only call this function 
-            when we want to rotate the image clockwise so surely we know the exact rotation?
-            self.idx_map = self.idx_map_v  # Vertical SC
-        """
+
 
     @NI_decor
     def seams_removal_vertical(self, num_remove: int):
@@ -343,18 +324,19 @@ class GreedySeamImage(SeamImage):
         Every row chooses the next pixel based on which neighbor has the lowest cost.
         # Initialize the path array with the index of the minimum cost pixel in the first row
         """
-        Greedy_seam = np.zeros((self.h), dtype=int)
-        Greedy_seam[0] = np.argmin(self.E[0])
-        print(self.E.shape)
+        Greedy_seam = []
+        Greedy_seam.append(np.argmin(self.E[0]))
+        #print(self.E.shape)
         for i in range(1,self.h):
-            j = Greedy_seam[i - 1]
-            left = max(j - 1, 0)
-            right = min(j + 1, self.w - 1)
-            next_indx = [left, j, right][np.argmin([self.E[i, left], self.E[i, j], self.E[i, right]])]
-            Greedy_seam[i] = next_indx
-            if next_indx > 340:
-                print(next_indx)
-                break 
+            j = Greedy_seam[-1]
+            left = max(0, j - 1)
+            right = min(self.w - 1, j + 1,)
+            # adding cost of three possible options in an array
+            values = self.E[i, left:right + 1]
+            Greedy_seam.append(np.argmin(values) + left)
+            #if next_indx > 340:
+                #print(next_indx)
+                #break 
         return Greedy_seam
 
 
