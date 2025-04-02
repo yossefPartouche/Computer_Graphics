@@ -140,14 +140,28 @@ class SeamImage:
 
     def paint_seams(self):
         self.cumm_mask = np.squeeze(self.cumm_mask)
-        for s in self.seam_history:
+        for s_idx, s in enumerate(self.seam_history):
+            #print(f"Processing seam {s_idx}, length: {len(s)}")
             for i, s_i in enumerate(s):
-               v_idx =  self.idx_map_v[i,s_i]
-               h_idx =  self.idx_map_h[i,s_i]
-               self.cumm_mask[v_idx, h_idx] = False
+                #print(f"  Checking i={i}, s_i={s_i}")
+                #pdb.set_trace()
 
-        cumm_mask_rgb = np.stack([self.cumm_mask] * 3, axis=2)
-        self.seams_rgb = np.where(cumm_mask_rgb, self.seams_rgb, [1,0,0])
+                """
+                    # ✅ BEFORE accessing, check index bounds
+                if i >= self.idx_map_v.shape[0]:
+                    print(f"⚠️ ERROR: i={i} out of bounds for axis 0 (size={self.idx_map_v.shape[0]})")
+                    return
+
+                if s_i >= self.idx_map_v.shape[1]:  
+                    print(f"⚠️ ERROR: s_i={s_i} out of bounds for axis 1 (size={self.idx_map_v.shape[1]})")
+                    return
+                """
+                v_idx =  self.idx_map_v[i,s_i]
+                h_idx =  self.idx_map_h[i, s_i]
+                self.cumm_mask[v_idx, h_idx] = False
+
+        #cumm_mask_rgb = np.stack([self.cumm_mask] * 3, axis=2)
+        #self.seams_rgb = np.where(cumm_mask_rgb, self.seams_rgb, [1,0,0])
 
     def seams_removal(self, num_remove: int):
         """ Iterates num_remove times and removes num_remove vertical seams
@@ -180,16 +194,13 @@ class SeamImage:
             # The first entry is what we're provided by the seam itself
             seam = self.find_minimal_seam()
             self.seam_history.append(seam)
-
             if self.vis_seams:
                 self.update_ref_mat()
-                self.paint_seams()
             self.remove_seam(seam)
-            
-        
-       # if self.vis_seams:
-                #self.paint_seams()
-                # Show the image with the seam marked in red
+        if self.vis_seams: 
+            self.paint_seams()
+            cumm_mask_rgb = np.stack([self.cumm_mask] * 3, axis=2)
+            self.seams_rgb = np.where(cumm_mask_rgb, self.seams_rgb, [1,0,0])
 
     @NI_decor
     def find_minimal_seam(self) -> List[int]:
@@ -274,7 +285,7 @@ class SeamImage:
             num_remove (int): number of horizontal seam to be removed
         """
         self.rotate_mats(clockwise=True)
-        self.idx_map = self.idx_map_v
+        self.idx_map = self.idx_map_h
         self.seams_removal(num_remove)
         self.rotate_mats(clockwise=False)
 
@@ -332,22 +343,18 @@ class GreedySeamImage(SeamImage):
         Every row chooses the next pixel based on which neighbor has the lowest cost.
         # Initialize the path array with the index of the minimum cost pixel in the first row
         """
-        Greedy_seam = np.zeros(self.h, dtype=int)
+        Greedy_seam = np.zeros((self.h), dtype=int)
         Greedy_seam[0] = np.argmin(self.E[0])
-        #print(Greedy_seam[0])
+        print(self.E.shape)
         for i in range(1,self.h):
             j = Greedy_seam[i - 1]
-            #print("j", j)
-            left = j - 1 if j > 0 else j 
-            #print("left", left)
-            right = j + 1 if j < self.w-1 else j 
-            #print("right", right)
-            next_triple_E = [(self.E[i, left], left), (self.E[i, j], j),  (self.E[i, right], right)]
-            min_energy, next_indx = min(next_triple_E, key=lambda x: x[0])
-            #print("next_indx", next_indx)
+            left = max(j - 1, 0)
+            right = min(j + 1, self.w - 1)
+            next_indx = [left, j, right][np.argmin([self.E[i, left], self.E[i, j], self.E[i, right]])]
             Greedy_seam[i] = next_indx
-        
-        #print("Greedy_seam", Greedy_seam.shape)
+            if next_indx > 340:
+                print(next_indx)
+                break 
         return Greedy_seam
 
 
