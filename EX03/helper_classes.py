@@ -1,7 +1,6 @@
 import numpy as np
 
 
-
 # This function gets a vector and returns its normalized form.
 def normalize(vector):
     return vector / np.linalg.norm(vector)
