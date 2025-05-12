@@ -1,6 +1,7 @@
 from helper_classes import *
 import matplotlib.pyplot as plt
 
+
 def render_scene(camera, ambient, lights, objects, screen_size, max_depth):
     width, height = screen_size
     ratio = float(width) / height
