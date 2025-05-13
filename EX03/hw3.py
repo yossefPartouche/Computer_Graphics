@@ -93,8 +93,7 @@ def calcShadowFactor(light, obj, objects, hitP):
 def calcDiffuseColor(obj, hitP, light):
     vec_l = light.get_light_ray(hitP).direction
     vec_n = obj.getNormal(hitP)
-    dot_nl = max(np.dot(vec_n, vec_l), 0.0)
-    return obj.diffuse * light.get_intensity(hitP) * dot_nl
+    return obj.diffuse * light.get_intensity(hitP) * np.dot(vec_n, vec_l)
 
 def calcSpecularColor(obj, hitP, ray, light):
     vec_l = light.get_light_ray(hitP).direction
