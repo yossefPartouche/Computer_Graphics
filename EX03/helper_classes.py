@@ -261,7 +261,7 @@ class Sphere(Object3D):
         
         a = np.dot(ray.direction, ray.direction)
         b = 2 * np.dot(k, ray.direction)
-        c = np.dot(k, k)
+        c = np.dot(k, k) - self.radius ** 2
 
         discr = b ** 2 - 4 * a * c
 
@@ -273,6 +273,9 @@ class Sphere(Object3D):
 
         t = min(filter(lambda t: t > 1e-6, (t_1, t_2)), default=None)
 
+        if t is None:
+            return None
+        
         return t, self
     
     def getNormal(self, point):
