@@ -109,6 +109,7 @@ def ConstructReflectiveRay(ray, obj, hitP):
 def ConstructRefractiveRay(ray, hitP):
     return Ray(hitP, ray.direction)
 
+
 # Write your own objects and lights
 # TODO
 def your_own_scene():
