@@ -14,7 +14,6 @@ def reflected(vector, axis):
      
     return vec_R
 
-
 ## Lights
 class LightSource:
     def __init__(self, intensity):
@@ -24,7 +23,7 @@ class LightSource:
 class DirectionalLight(LightSource):
     def __init__(self, intensity, direction):
         super().__init__(intensity)
-        self.direction = direction
+        self.direction = normalize(direction)
 
     # This function returns the ray that goes from the light source to a point
     def get_light_ray(self,intersection_point):
@@ -61,7 +60,7 @@ class PointLight(LightSource):
         # calculate distance between light source and intersection 
         # calculate and return the light intensity based on kc, kl, kq
         distance = self.get_distance_from_light(intersection)
-        return self.intensity / (self.kc + self.kl * distance + self.kq * np.square(distance))
+        return self.intensity / (self.kc + self.kl * distance + self.kq * (distance ** 2))
 
 class SpotLight(LightSource):
     def __init__(self, intensity, position, direction, kc, kl, kq):
@@ -98,16 +97,16 @@ class Ray:
         nearest_object = None
         min_distance = np.inf
 
-        for object in objects:
-            obj_intersect = object.intersect(self)
+        for obj in objects:
+            obj_intersect = obj.intersect(self)
 
             if obj_intersect is None:
                 continue
 
-            t, obj = obj_intersect
+            t, obj_hit = obj_intersect
             
             if t < min_distance:
-                nearest_object = obj
+                nearest_object = obj_hit
                 min_distance = t
         
         if nearest_object is None:
@@ -139,7 +138,7 @@ class Plane(Object3D):
         else:
             return None
         
-    def getNormal(self, point):
+    def getNormal(self, _):
         return self.normal
 
 
@@ -157,14 +156,16 @@ class Triangle(Object3D):
         self.a = np.array(a)
         self.b = np.array(b)
         self.c = np.array(c)
-        self.normal = self.compute_normal()
-        self.plane = Plane(self.normal, a)
-
-    # computes normal to the trainagle surface. Pay attention to its direction!
-    def compute_normal(self):
         vec_ba = self.a - self.b
         vec_bc = self.c - self.b
-        return normalize(np.cross(vec_bc, vec_ba))
+        cross = np.cross(vec_bc, vec_ba)
+        self.area2 = np.linalg.norm(cross) # 2 * area
+        self.normal = normalize(cross)
+        self.plane = Plane(self.normal, a)
+        
+    # computes normal to the trainagle surface. Pay attention to its direction!
+    #def compute_normal(self):
+       #return normalize(self.cross)
 
     def intersect(self, ray: Ray):
         obj_intersect = self.plane.intersect(ray)
@@ -172,21 +173,23 @@ class Triangle(Object3D):
             return None
         
         t, _ = obj_intersect
-        point = np.array(ray.origin + t * ray.direction)
-        n = self.normal * np.linalg.norm(self.normal) 
-        area = np.linalg.norm(n) / 2
+        point = ray.origin + t * ray.direction
+        
         vec_pb = self.b - point
         vec_pc = self.c - point
         vec_pa = self.a - point
-        alpha = np.linalg.norm(np.cross(vec_pb, vec_pc)) / (2 * area)
-        beta = np.linalg.norm(np.cross(vec_pc, vec_pa)) / (2 * area)
+        
+        alpha = np.linalg.norm(np.cross(vec_pb, vec_pc)) / self.area2
+        beta = np.linalg.norm(np.cross(vec_pc, vec_pa)) / self.area2
         gamma = 1 - alpha - beta
+        
         ratios = np.array([alpha, beta, gamma])
         intersected = np.all((0 <= ratios) & (ratios <= 1)) and np.isclose(ratios.sum(), 1, atol=1e-6)
         if intersected:
             return t, self
+        return None
         
-    def getNormal(self, point):
+    def getNormal(self, _):
         return self.normal
 
 class Diamond(Object3D):
@@ -254,25 +257,26 @@ class Sphere(Object3D):
         self.radius = radius
 
     def intersect(self, ray: Ray):
-        v_x, v_y, v_z = ray.direction[0], ray.direction[1], ray.direction[2]
-        o_x, o_y, o_z = ray.origin[0], ray.origin[1], ray.origin[2]
-        c_x, c_y, c_z = self.center[0], self.center[1], self.center[2]
-        k_x, k_y, k_z = o_x - c_x, o_y - c_y, o_z - c_z
+        k = ray.origin - self.center
         
-        a = v_x ** 2 + v_y ** 2 + v_z ** 2
-        b = 2 * k_x * v_x + 2 *  k_y * v_y + 2 * k_z * v_z
-        c = k_x ** 2 + k_y ** 2 + k_z ** 2
+        a = np.dot(ray.direction, ray.direction)
+        b = 2 * np.dot(k, ray.direction)
+        c = np.dot(k, k) - self.radius ** 2
 
         discr = b ** 2 - 4 * a * c
 
         if discr < 0:
             return None
         
-        else:
-            t_1 = (-b + np.sqrt(discr)) / 2 * a
-            t_2 = (-b - np.sqrt(discr)) / 2 * a
+        t_1 = (-b + np.sqrt(discr)) / (2 * a)
+        t_2 = (-b - np.sqrt(discr)) / (2 * a)
 
-        return np.min(t_1, t_2)
+        t = min(filter(lambda t: t > 0, (t_1, t_2)), default=None)
+
+        if t is None:
+            return None
+        
+        return t, self
     
     def getNormal(self, point):
         return normalize(point - self.center)
