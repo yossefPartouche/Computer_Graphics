@@ -23,7 +23,7 @@ class LightSource:
 class DirectionalLight(LightSource):
     def __init__(self, intensity, direction):
         super().__init__(intensity)
-        self.direction = direction
+        self.direction = normalize(direction)
 
     # This function returns the ray that goes from the light source to a point
     def get_light_ray(self,intersection_point):
@@ -60,7 +60,7 @@ class PointLight(LightSource):
         # calculate distance between light source and intersection 
         # calculate and return the light intensity based on kc, kl, kq
         distance = self.get_distance_from_light(intersection)
-        return self.intensity / (self.kc + self.kl * distance + self.kq * np.square(distance))
+        return self.intensity / (self.kc + self.kl * distance + self.kq * (distance ** 2))
 
 class SpotLight(LightSource):
     def __init__(self, intensity, position, direction, kc, kl, kq):
@@ -97,16 +97,16 @@ class Ray:
         nearest_object = None
         min_distance = np.inf
 
-        for object in objects:
-            obj_intersect = object.intersect(self)
+        for obj in objects:
+            obj_intersect = obj.intersect(self)
 
             if obj_intersect is None:
                 continue
 
-            t, obj = obj_intersect
+            t, obj_hit = obj_intersect
             
             if t < min_distance:
-                nearest_object = obj
+                nearest_object = obj_hit
                 min_distance = t
         
         if nearest_object is None:
@@ -271,7 +271,7 @@ class Sphere(Object3D):
         t_1 = (-b + np.sqrt(discr)) / (2 * a)
         t_2 = (-b - np.sqrt(discr)) / (2 * a)
 
-        t = min(filter(lambda t: t > 1e-6, (t_1, t_2)), default=None)
+        t = min(filter(lambda t: t > 0, (t_1, t_2)), default=None)
 
         if t is None:
             return None

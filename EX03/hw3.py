@@ -69,9 +69,9 @@ def getColor(ambient, obj, objects, lights, ray, hitP, max_depth, level):
 
 def calcEmissionColor(obj):
     if isinstance(obj, LightSource):
-        return 1.0
+        return np.ones(3)
     else:
-        return 0.0
+        return np.zeros(3)
     
 def calcAmbientColor(ambient, obj):
     return obj.ambient * ambient
@@ -93,13 +93,15 @@ def calcShadowFactor(light, obj, objects, hitP):
 def calcDiffuseColor(obj, hitP, light):
     vec_l = light.get_light_ray(hitP).direction
     vec_n = obj.getNormal(hitP)
-    return obj.diffuse * light.get_intensity(hitP) * np.dot(vec_n, vec_l)
+    dot_nl = max(np.dot(vec_n, vec_l), 0.0)
+    return obj.diffuse * light.get_intensity(hitP) * dot_nl
 
 def calcSpecularColor(obj, hitP, ray, light):
     vec_l = light.get_light_ray(hitP).direction
-    l_hat = reflected(-vec_l, obj.getNormal(hitP))
-    v = normalize(-ray.direction)
-    return obj.specular * light.get_intensity(hitP) * (np.dot(l_hat, v) ** obj.shininess)
+    l_hat = normalize(reflected(-vec_l, obj.getNormal(hitP)))
+    v = -ray.direction
+    dot_lv = max(np.dot(l_hat, v), 0.0)
+    return obj.specular * light.get_intensity(hitP) * (dot_lv ** obj.shininess)
     
 def ConstructReflectiveRay(ray, obj, hitP):
     return Ray(hitP, reflected(ray.direction, obj.getNormal(hitP)))
