@@ -52,19 +52,21 @@ def getColor(ambient, obj, objects, lights, ray, hitP, max_depth, level):
         return color
     
     # Reflective and Refractive components
-    r_ray = ConstructReflectiveRay(ray, obj, hitP)
-    r_intersect = r_ray.nearest_intersected_object(objects)
-    if r_intersect is not None:
-        t, r_obj = r_intersect
-        r_hit = r_ray.origin + t * r_ray.direction
-        color += r_obj.reflection * getColor(ambient, r_obj, objects, lights, r_ray, r_hit, max_depth, level)
-   
-    t_ray = ConstructRefractiveRay(ray, hitP)
-    t_intersect = t_ray.nearest_intersected_object(objects)    
-    if t_intersect is not None:
-        t, t_obj = t_intersect
-        t_hit = t_ray.origin + t * t_ray.direction
-        color += t_obj.refraction * getColor(ambient, t_obj, objects, lights, t_ray, t_hit, max_depth, level)
+    if obj.reflection > 0:
+        r_ray = ConstructReflectiveRay(ray, obj, hitP)
+        r_intersect = r_ray.nearest_intersected_object(objects)
+        if r_intersect is not None:
+            t, r_obj = r_intersect
+            r_hit = r_ray.origin + t * r_ray.direction
+            color += r_obj.reflection * getColor(ambient, r_obj, objects, lights, r_ray, r_hit, max_depth, level)
+    
+    if obj.refraction > 0:
+        t_ray = ConstructRefractiveRay(ray, obj, hitP)
+        t_intersect = t_ray.nearest_intersected_object(objects)    
+        if t_intersect is not None:
+            t, t_obj = t_intersect
+            t_hit = t_ray.origin + t * t_ray.direction
+            color += obj.refraction * getColor(ambient, t_obj, objects, lights, t_ray, t_hit, max_depth, level)
     return color
 
 def calcEmissionColor(obj):
@@ -83,10 +85,10 @@ def calcShadowFactor(light, obj, objects, hitP):
     if obj_intersect is None:
         return 1.0
     
-    t, _ = obj_intersect
+    t, obj = obj_intersect
 
     if t < light_distance:
-        return 0.0
+        return obj.refraction
     else:
         return 1.0
 
@@ -106,14 +108,44 @@ def calcSpecularColor(obj, hitP, ray, light):
 def ConstructReflectiveRay(ray, obj, hitP):
     return Ray(hitP, reflected(ray.direction, obj.getNormal(hitP)))
 
-def ConstructRefractiveRay(ray, hitP):
-    return Ray(hitP, ray.direction)
-
+def ConstructRefractiveRay(ray, obj, hitP):
+    return Ray(hitP - obj.getNormal(hitP), ray.direction)
 
 # Write your own objects and lights
 # TODO
 def your_own_scene():
-    camera = np.array([0,0,1])
-    lights = []
-    objects = []
+    camera = np.array([0,0.7,1.5])
+
+    globe = Sphere([0, 0.4, 0.2],0.5)
+    globe.set_material(
+        ambient=[0, 0, 0],
+        diffuse=[0.1, 0.1, 0.1], 
+        specular=[1, 1, 1],
+        shininess=100,
+        reflection=0.5,
+        refraction=0.8
+    )
+
+    snow_bottom = Sphere([0, 0.4, 0.2],0.3)
+    snow_bottom.set_material(
+        ambient=[1, 1, 0],
+        diffuse=[1, 1, 0], 
+        specular=[0, 0, 0],
+        shininess=100,
+        reflection=0.5
+    )
+
+    plane = Plane([0,1,0], [0,-0.3,0])
+    plane.set_material([0.2, 0.2, 0.2], [0.2, 0.2, 0.2], [1, 1, 1], 1000, 0.5)
+    background = Plane([0,0,1], [0,0,-3])
+    background.set_material([0.2, 0.2, 0.2], [0.2, 0.2, 0.2], [0.2, 0.2, 0.2], 1000, 0.5)
+
+
+    objects = [globe, snow_bottom, plane, background]
+
+    light1 = PointLight(intensity= np.array([1, 1, 1]),position=np.array([1,1.5,1]),kc=0.1,kl=0.1,kq=0.1)    
+
+    lights = [light1]
+    
+    
     return camera, lights, objects

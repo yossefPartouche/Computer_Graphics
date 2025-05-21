@@ -124,7 +124,6 @@ class Object3D:
         self.reflection = reflection
         self.refraction = refraction
 
-
 class Plane(Object3D):
     def __init__(self, normal, point):
         self.normal = np.array(normal)
