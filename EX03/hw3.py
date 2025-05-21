@@ -115,37 +115,120 @@ def ConstructRefractiveRay(ray, obj, hitP):
 # TODO
 def your_own_scene():
     camera = np.array([0,0.7,1.5])
+    
+    globe_center = np.array([0, 0.4, 0.4])
 
-    globe = Sphere([0, 0.4, 0.2],0.5)
+    globe = Sphere(globe_center,0.5)
     globe.set_material(
-        ambient=[0, 0, 0],
-        diffuse=[0.1, 0.1, 0.1], 
+        ambient=[0.2, 0.2, 0.2],
+        diffuse=[0.8, 0.8, 0.8], 
         specular=[1, 1, 1],
         shininess=100,
         reflection=0.5,
-        refraction=0.8
+        refraction=1
     )
 
-    snow_bottom = Sphere([0, 0.4, 0.2],0.3)
+    bottom_radius = 0.15
+    bottom_center = globe_center + np.array([0, -0.2, 0.2])
+    snow_bottom = Sphere(bottom_center, bottom_radius)
     snow_bottom.set_material(
-        ambient=[1, 1, 0],
-        diffuse=[1, 1, 0], 
-        specular=[0, 0, 0],
+        ambient=[1, 1, 1],
+        diffuse=[1, 1, 1], 
+        specular=[1, 1, 1],
         shininess=100,
         reflection=0.5
     )
 
+    middle_radius = 0.10
+    middle_center = bottom_center + np.array([0, bottom_radius + middle_radius - 0.01, 0])
+    snow_middle = Sphere(middle_center, middle_radius)
+    snow_middle.set_material(
+        ambient=[1, 1, 1],
+        diffuse=[1, 1, 1], 
+        specular=[1, 1, 1],
+        shininess=100,
+        reflection=0.5
+    )
+
+    top_radius = 0.075
+    top_center = middle_center + np.array([0, middle_radius + top_radius - 0.01, 0])
+    snow_top = Sphere(top_center, top_radius)
+    snow_top.set_material(
+        ambient=[1, 1, 1],
+        diffuse=[1, 1, 1], 
+        specular=[1, 1, 1],
+        shininess=100,
+        reflection=0.5
+    )
+
+    eye_radius = 0.015
+    eye_left = Sphere(top_center + np.array([-0.02,  0.01, top_radius - eye_radius]), eye_radius)
+    eye_right= Sphere(top_center + np.array([ 0.02,  0.01, top_radius - eye_radius]), eye_radius)
+    for eye in (eye_left, eye_right):
+        eye.set_material(
+            ambient=[0, 0, 0],
+            diffuse=[0, 0, 0],
+            specular=[0, 0, 0],
+            shininess=10,
+            reflection=0
+        )
+
+    tip = top_center + np.array([-0.1,  0.0,   top_radius + 0.02])
+    base_L = top_center + np.array([0.0,  0.01,  top_radius + 0.02])
+    base_R = top_center + np.array([0.0, -0.01,  top_radius + 0.02])
+    nose = Triangle(tip, base_L, base_R)
+    nose.set_material(
+        ambient  =[1, 0.5, 0],
+        diffuse  =[1, 0.5, 0],
+        specular =[0, 0, 0],
+        shininess=10,
+        reflection=0
+    )
+    
+    ''''
+    snowflakes = []
+    num_flakes = 25  # Adjust number of snowflakes
+
+    # Globe center and radius for reference
+    globe_radius = 0.5
+    flake_radius = 0.01
+
+    # Generate random snowflakes within the globe
+    for i in range(num_flakes):
+    # Generate a random position inside the globe
+    # This uses a rejection method to ensure uniform distribution
+        while True:
+            # Random point in cube, then check if in sphere
+            random_offset = np.random.uniform(-globe_radius, globe_radius, 3)
+            if np.linalg.norm(random_offset) < globe_radius * 0.9:  # Keep within 90% of radius
+                break
+        
+        # Position the snowflake at globe center + offset
+        position = globe_center + random_offset
+        
+        # Create snowflake and set material
+        snowflake = Sphere(position, flake_radius)
+        snowflake.set_material(
+            ambient=[1, 1, 1],
+            diffuse=[1, 1, 1], 
+            specular=[1, 1, 1],  # Add some specular for sparkle
+            shininess=100,
+            reflection=0.1,      # Slight reflection for sparkle
+            refraction=0.0
+        )
+        snowflakes.append(snowflake)
+    '''
+
     plane = Plane([0,1,0], [0,-0.3,0])
-    plane.set_material([0.2, 0.2, 0.2], [0.2, 0.2, 0.2], [1, 1, 1], 1000, 0.5)
+    plane.set_material([0.8, 0.8, 0.8], [0.8, 0.8, 0.8], [0.8, 0.8, 0.8], 100, 0.5)
     background = Plane([0,0,1], [0,0,-3])
-    background.set_material([0.2, 0.2, 0.2], [0.2, 0.2, 0.2], [0.2, 0.2, 0.2], 1000, 0.5)
+    background.set_material([0, 0, 0.8], [0.2, 0.2, 0.8], [0.2, 0.2, 0.8], 100, 0.5)
 
+    objects = [globe, snow_bottom, snow_middle, snow_top, eye_left, eye_right, nose, plane, background]
 
-    objects = [globe, snow_bottom, plane, background]
-
-    light1 = PointLight(intensity= np.array([1, 1, 1]),position=np.array([1,1.5,1]),kc=0.1,kl=0.1,kq=0.1)    
-
-    lights = [light1]
+    light1 = PointLight(intensity= np.array([1, 1, 1]),position=np.array([1,1.5,1]),kc=0.3,kl=0.3,kq=0.3)  
+    light2 = DirectionalLight(intensity=np.array([0.3,0.3,0.3]), direction=[-1,-1,1])
+    lights = [light1, light2]
     
     
     return camera, lights, objects
