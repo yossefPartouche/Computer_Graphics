@@ -156,16 +156,16 @@ class Triangle(Object3D):
         self.a = np.array(a)
         self.b = np.array(b)
         self.c = np.array(c)
-        vec_ba = self.a - self.b
-        vec_bc = self.c - self.b
-        cross = np.cross(vec_bc, vec_ba)
-        self.area2 = np.linalg.norm(cross) # 2 * area
-        self.normal = normalize(cross)
+        
+        self.vec_ab = self.b - self.a
+        self.vec_ac = self.c - self.a
+        
+        self.normal = self.compute_normal()
         self.plane = Plane(self.normal, a)
         
     # computes normal to the trainagle surface. Pay attention to its direction!
-    #def compute_normal(self):
-       #return normalize(self.cross)
+    def compute_normal(self):
+       return normalize(np.cross(self.vec_ab, self.vec_ac))
 
     def intersect(self, ray: Ray):
         obj_intersect = self.plane.intersect(ray)
@@ -179,9 +179,11 @@ class Triangle(Object3D):
         vec_pc = self.c - point
         vec_pa = self.a - point
         
-        alpha = np.linalg.norm(np.cross(vec_pb, vec_pc)) / self.area2
-        beta = np.linalg.norm(np.cross(vec_pc, vec_pa)) / self.area2
-        gamma = 1 - alpha - beta
+        area2 = np.linalg.norm(np.cross(self.vec_ab, self.vec_ac)) # 2 * area
+
+        alpha = np.linalg.norm(np.cross(vec_pb, vec_pc)) / area2
+        beta = np.linalg.norm(np.cross(vec_pa, vec_pc)) / area2
+        gamma = np.linalg.norm(np.cross(vec_pa, vec_pb)) / area2
         
         ratios = np.array([alpha, beta, gamma])
         intersected = np.all((0 <= ratios) & (ratios <= 1)) and np.isclose(ratios.sum(), 1, atol=1e-6)
