@@ -150,20 +150,22 @@ def your_own_scene():
     xmasTree = createChristmasTree()
     smallTree = createSmallChristmasTree()
 
-    #objects = [globe, plane, background] + snowflakes + snowMan + xmasTree
+    objects = [globe, plane, background] + snowflakes + snowMan + xmasTree + smallTree
     #objects = [globe, plane, background] + xmasTree
-    objects = [globe, plane, background] + snowMan + smallTree
+    #objects = [globe, plane, background] + snowMan + xmasTree
+    #objects = [globe, plane, background] + snowflakes
+
 
     light1 = PointLight(intensity= np.array([1, 1, 1]),position=np.array([0,1,1]),kc=0.4,kl=0.4,kq=0.4)    
     light2 = PointLight(intensity= np.array([1, 1, 1]),position=np.array([-0.5, 0, 0]),kc=0.1,kl=0.1,kq=0.1) 
 
-    lights =  [light1]
+    lights =  [light1, light2]
     
     return camera, lights, objects
 
 def createSnowFlakes():
     snowflakes = []
-    num_flakes = 10  # Adjust number of snowflakes
+    num_flakes = 100  # Adjust number of snowflakes
 
     # Globe center and radius for reference
     globe_center = np.array([0, 0.4, 0.2])
@@ -177,7 +179,7 @@ def createSnowFlakes():
         while True:
             # Random point in cube, then check if in sphere
             random_offset = np.random.uniform(-globe_radius, globe_radius, 3)
-            if np.linalg.norm(random_offset) < globe_radius * 0.9:  # Keep within 90% of radius
+            if np.linalg.norm(random_offset) < globe_radius * 0.9: 
                 break
         
         # Position the snowflake at globe center + offset
@@ -301,6 +303,35 @@ def createChristmasTree():
                 0.0
             )
             tree_triangles.append(tree_tri)
+            if tier > 0:  # Don't add snow to bottom tier
+                # Create a smaller triangle above the branch to represent snow
+                snow_height = tier_height * 0.3  # Snow covers top 30% of branch
+                snow_base_y = tier_top_y - snow_height
+                
+                # Create snow triangle (smaller than the branch triangle)
+                snow_top = top
+                snow_base1 = [
+                    tree_base[0] + tier_radius * 0.8 * np.cos(angle1),
+                    snow_base_y,
+                    tree_base[2] + tier_radius * 0.8 * np.sin(angle1)
+                ]
+                
+                snow_base2 = [
+                    tree_base[0] + tier_radius * 0.8 * np.cos(angle2),
+                    snow_base_y,
+                    tree_base[2] + tier_radius * 0.8 * np.sin(angle2)
+                ]
+                
+                # Create and add the snow triangle
+                snow_tri = Triangle(snow_base1, snow_base2, snow_top)
+                snow_tri.set_material(
+                    [1.2, 1.2, 1.2], 
+                    [1.2, 1.2, 1.2], 
+                    [1, 1, 1],
+                    50, 
+                    0  
+                )
+                tree_triangles.append(snow_tri)
     
     return tree_triangles
 
