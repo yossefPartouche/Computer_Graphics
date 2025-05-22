@@ -154,11 +154,8 @@ def your_own_scene():
     xmasTree = createChristmasTree()
     smallTree = createSmallChristmasTree()
 
-    #objects = [globe, plane, background] + snowflakes + snowMan + xmasTree + smallTree
-    #objects = [globe, plane, background] + xmasTree
-    #objects = [globe, plane, background] + snowMan + xmasTree
-    #objects = [globe, plane, background] + snowflakes
-    objects  = [globe, plane, background] + snowMan
+    objects = [globe, plane, background] + snowflakes + snowMan + xmasTree + smallTree
+
 
 
     light1 = PointLight(
@@ -189,7 +186,7 @@ def your_own_scene():
 
 def createSnowFlakes():
     snowflakes = []
-    num_flakes = 100  # Adjust number of snowflakes
+    num_flakes = 100 
 
     # Globe center and radius for reference
     globe_center = np.array([0, 0.4, 0.2])
@@ -208,14 +205,13 @@ def createSnowFlakes():
         # Position the snowflake at globe center + offset
         position = globe_center + random_offset
         
-        # Create snowflake and set material
         snowflake = Sphere(position, flake_radius)
         snowflake.set_material(
             ambient=[1, 1, 1],
             diffuse=[1, 1, 1], 
-            specular=[1, 1, 1],  # Add some specular for sparkle
+            specular=[1, 1, 1],  
             shininess=100,
-            reflection=0.1,      # Slight reflection for sparkle
+            reflection=0.1,    
             refraction=0.0
         )
         snowflakes.append(snowflake)
@@ -288,15 +284,15 @@ def createSnowMan():
 
 def createChristmasTree():
     tree_triangles = []
-    trunk_color = [0.55, 0.27, 0.07]  # Brown
-    tree_color = [0.0, 0.5, 0.0]      # Green
+    trunk_color = [0.55, 0.27, 0.07]  
+    tree_color = [0.0, 0.5, 0.0]      
     
-    # Tree trunk (simple rectangular prism made of triangles)
+    # Tree trunk rectangular prism made of triangles
     trunk_width = 0.08
     trunk_height = 0.2
-    trunk_center = [0.35, -0.2, 0.2]  # Position near snowman
+    trunk_center = [0.35, -0.2, 0.2] 
     
-    # Create trunk using triangles (simplified as a rectangular structure)
+    # Create trunk using triangles
     trunk_vertices = [
         # Front face
         [trunk_center[0]-trunk_width/2, trunk_center[1], trunk_center[2]+trunk_width/2],
@@ -305,7 +301,6 @@ def createChristmasTree():
         [trunk_center[0]-trunk_width/2, trunk_center[1]+trunk_height, trunk_center[2]+trunk_width/2],
     ]
     
-    # Create triangles for front face
     trunk_tri1 = Triangle(trunk_vertices[0], trunk_vertices[1], trunk_vertices[2])
     trunk_tri1.set_material(trunk_color, trunk_color, [0.1, 0.1, 0.1], 10, 0.0)
     trunk_tri2 = Triangle(trunk_vertices[0], trunk_vertices[2], trunk_vertices[3])
@@ -313,7 +308,7 @@ def createChristmasTree():
     
     tree_triangles.extend([trunk_tri1, trunk_tri2])
     
-    # Create the tree tiers (multiple cones stacked)
+    # Create the tree levels
     num_tiers = 4
     tree_base = [trunk_center[0], trunk_center[1] + trunk_height, trunk_center[2]]
     max_radius = 0.3
@@ -361,7 +356,6 @@ def createChristmasTree():
                 snow_height = tier_height * 0.3  # Snow covers top 30% of branch
                 snow_base_y = tier_top_y - snow_height
                 
-                # Create snow triangle (smaller than the branch triangle)
                 snow_top = top
                 snow_base1 = [
                     tree_base[0] + tier_radius * 0.8 * np.cos(angle1),
@@ -390,17 +384,16 @@ def createChristmasTree():
 
 def createSmallChristmasTree():
     tree_triangles = []
-    trunk_color = [0.55, 0.27, 0.07]  # Same brown as original
-    tree_color = [0.0, 0.5, 0.0]      # Same green as original
+    trunk_color = [0.55, 0.27, 0.07]  
+    tree_color = [0.0, 0.5, 0.0]      
     
     # Smaller dimensions
     trunk_width = 0.05 
     trunk_height = 0.12
     
-    # Position on the other side of snowman
     trunk_center = [-0.1, -0.2, 0.2]
     
-    # Create simplified trunk (just one face)
+    # Create simplified trunk just one face
     trunk_vertices = [
         [trunk_center[0]-trunk_width/2, trunk_center[1], trunk_center[2]+trunk_width/2],
         [trunk_center[0]+trunk_width/2, trunk_center[1], trunk_center[2]+trunk_width/2],
@@ -408,7 +401,7 @@ def createSmallChristmasTree():
         [trunk_center[0]-trunk_width/2, trunk_center[1]+trunk_height, trunk_center[2]+trunk_width/2],
     ]
     
-    # Create trunk triangles - same as original
+    # Create trunk triangles 
     trunk_tri1 = Triangle(trunk_vertices[0], trunk_vertices[1], trunk_vertices[2])
     trunk_tri1.set_material(trunk_color, trunk_color, [0.1, 0.1, 0.1], 10, 0.0)
     trunk_tri2 = Triangle(trunk_vertices[0], trunk_vertices[2], trunk_vertices[3])
@@ -416,7 +409,6 @@ def createSmallChristmasTree():
     
     tree_triangles.extend([trunk_tri1, trunk_tri2])
     
-    # Create the tree tiers
     num_tiers = 3
     tree_base = [trunk_center[0], trunk_center[1] + trunk_height, trunk_center[2]]
     max_radius = 0.18
