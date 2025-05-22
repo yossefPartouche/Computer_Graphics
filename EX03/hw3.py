@@ -150,10 +150,11 @@ def your_own_scene():
     xmasTree = createChristmasTree()
     smallTree = createSmallChristmasTree()
 
-    objects = [globe, plane, background] + snowflakes + snowMan + xmasTree + smallTree
+    #objects = [globe, plane, background] + snowflakes + snowMan + xmasTree + smallTree
     #objects = [globe, plane, background] + xmasTree
     #objects = [globe, plane, background] + snowMan + xmasTree
     #objects = [globe, plane, background] + snowflakes
+    objects  = [globe, plane, background] + snowMan
 
 
     light1 = PointLight(intensity= np.array([1, 1, 1]),position=np.array([0,1,1]),kc=0.4,kl=0.4,kq=0.4)    
