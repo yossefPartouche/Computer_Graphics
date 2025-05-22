@@ -3,3 +3,12 @@ Unit 2 - Modelling 1.docx
 ex01/__pycache__/utils.cpython-312.pyc
 ex01/__pycache__/Tal_utils.cpython-312.pyc
 ex01/__pycache__/utils.cpython-312.pyc
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
