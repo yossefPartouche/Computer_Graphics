@@ -66,7 +66,8 @@ def getColor(ambient, obj, objects, lights, ray, hitP, max_depth, level):
         if t_intersect is not None:
             t, t_obj = t_intersect
             t_hit = t_ray.origin + t * t_ray.direction
-            color += obj.refraction * getColor(ambient, t_obj, objects, lights, t_ray, t_hit, max_depth, level)
+            others = [o for o in objects if o is not obj]
+            color += obj.refraction * getColor(ambient, t_obj, others, lights, t_ray, t_hit, max_depth, level)
     return color
 
 def calcEmissionColor(obj):
@@ -109,41 +110,44 @@ def ConstructReflectiveRay(ray, obj, hitP):
     return Ray(hitP, reflected(ray.direction, obj.getNormal(hitP)))
 
 def ConstructRefractiveRay(ray, obj, hitP):
-    offset = obj.getNormal(hitP)
-    if isinstance(obj, Sphere):
-        offset *= 0.1*obj.radius
-    return Ray(hitP-offset, ray.direction)
+    origin = hitP + ray.direction * 1e-4
+    return Ray(origin, ray.direction)
 
 
 def your_own_scene():
-    camera = np.array([0.5,0.1,4])
+    camera = np.array([0, 0.3, 4])
 
-    globe = Sphere([0.05, 0, 0.1],0.93)
+    globe_center = [0, 0.2, 0.5]
+    globe = Sphere(globe_center,0.75)
     globe.set_material(
-        ambient=[1, 1, 1],
-        diffuse=[0, 0, 0], 
-        specular=[0, 0, 0],
-        shininess=0,
-        reflection=0.0,
-        refraction=1
+        ambient =[0.5, 0.5, 0.5],
+        diffuse =[0.2, 0.2, 0.2],
+        specular =[1.0, 1.0, 1.0],
+        shininess =300,
+        reflection=0.1,
+        refraction=0.7
     )
+
 
     plane = Plane([0,1,0], [0,-0.3,0])
     plane.set_material(
-        ambient=[1, 1, 1], 
-        diffuse=[1, 1, 1], 
-        specular=[1, 1, 1], 
-        shininess=0, 
-        reflection = 0
+        ambient=[0.2, 0.2, 0.2],
+        diffuse=[0.8, 0.8, 0.8],
+        specular=[0.1, 0.1, 0.1],
+        shininess=10,
+        reflection=0.2,
+        refraction=0
     )
     
     background = Plane([0,0,1], [0,0,-3])
     background.set_material(
-        ambient=[0.05, 0.05, 0.3], 
-        diffuse=[0.05, 0.1, 0.3], 
-        specular=[0.1, 0.1, 0.3], 
-        shininess=1000, 
-        reflection=0.2)
+        ambient=[0.02, 0.02, 0.1],
+        diffuse=[0.05, 0.05, 0.2],
+        specular=[0.1, 0.1, 0.3],
+        shininess=50,
+        reflection=0.0,
+        refraction=0
+    )
     
     snowflakes = createSnowFlakes()
     snowMan = createSnowMan()
@@ -157,10 +161,29 @@ def your_own_scene():
     objects  = [globe, plane, background] + snowMan
 
 
-    light1 = PointLight(intensity= np.array([1, 1, 1]),position=np.array([0,1,1]),kc=0.4,kl=0.4,kq=0.4)    
-    light2 = PointLight(intensity= np.array([1, 1, 1]),position=np.array([-0.5, 0, 0]),kc=0.1,kl=0.1,kq=0.1) 
-
-    lights =  [light1, light2]
+    light1 = PointLight(
+        intensity=np.array([1.0, 1.0, 1.0]),
+        position=np.array([1, 1.5, 1]),
+        kc=1.0, kl=0.0, kq=0.0
+    )
+    # Secondary directional fill
+    light2 = DirectionalLight(
+        intensity=np.array([0.5, 0.5, 0.5]),
+        direction=[-1, -1, 1]
+    )
+    # Inner fill light to brighten inside
+    inner_light = PointLight(
+        intensity=np.array([0.4, 0.4, 0.4]),
+        position=globe_center + np.array([0, 0.3, 0]),
+        kc=1.0, kl=0.0, kq=0.0
+    )
+    # Base lamp under the snowman
+    base_light = PointLight(
+        intensity=np.array([0.6, 0.6, 0.6]),
+        position=globe_center + np.array([0, -0.5, 0]),
+        kc=1.0, kl=0.0, kq=0.0
+    )
+    lights = [light1, light2, inner_light, base_light]
     
     return camera, lights, objects
 
@@ -176,7 +199,6 @@ def createSnowFlakes():
     # Generate random snowflakes within the globe
     for i in range(num_flakes):
     # Generate a random position inside the globe
-    # This uses a rejection method to ensure uniform distribution
         while True:
             # Random point in cube, then check if in sphere
             random_offset = np.random.uniform(-globe_radius, globe_radius, 3)
@@ -212,6 +234,7 @@ def createSnowMan():
         refraction= 0.0
     )
     snowMan.append(snow_bottom)
+
     snow_middle = Sphere([-0.5, 0.2, 0.2],0.15)
     snow_middle.set_material(
         ambient=[1, 1, 1],
@@ -221,6 +244,7 @@ def createSnowMan():
         reflection= 0.0,
         refraction= 0.0
     )
+
     snowMan.append(snow_middle)
     snow_top = Sphere([-0.5, 0.43, 0.2],0.1)
     snow_top.set_material(
@@ -231,7 +255,35 @@ def createSnowMan():
         reflection= 0.0,
         refraction= 0.0
     )
+
     snowMan.append(snow_top)
+    eye_radius = 0.015
+    eye_left = Sphere([-0.5, 0.43, 0.2] + np.array([-0.02,  0.01, 0.1 - eye_radius]), eye_radius)
+    eye_right= Sphere([-0.5, 0.43, 0.2] + np.array([ 0.02,  0.01, 0.1 - eye_radius]), eye_radius)
+    for eye in (eye_left, eye_right):
+        eye.set_material(
+            ambient=[0, 0, 0],
+            diffuse=[0, 0, 0],
+            specular=[0, 0, 0],
+            shininess=10,
+            reflection=0
+        )
+    snowMan.append(eye_left)
+    snowMan.append(eye_right)
+
+    tip = [-0.5, 0.43, 0.2] + np.array([-0.1, 0.0, 0.1 + 0.02])
+    base_L = [-0.5, 0.43, 0.2] + np.array([0.0,  0.01,  0.1 + 0.02])
+    base_R = [-0.5, 0.43, 0.2] + np.array([0.0, -0.01,  0.1 + 0.02])
+    nose = Triangle(tip, base_L, base_R)
+    nose.set_material(
+        ambient  =[1, 0.5, 0],
+        diffuse  =[1, 0.5, 0],
+        specular =[0, 0, 0],
+        shininess=10,
+        reflection=0
+    )
+    snowMan.append(nose)
+
     return snowMan
 
 def createChristmasTree():
@@ -342,11 +394,11 @@ def createSmallChristmasTree():
     tree_color = [0.0, 0.5, 0.0]      # Same green as original
     
     # Smaller dimensions
-    trunk_width = 0.05  # Reduced from 0.08
-    trunk_height = 0.12  # Reduced from 0.2
+    trunk_width = 0.05 
+    trunk_height = 0.12
     
     # Position on the other side of snowman
-    trunk_center = [-0.1, -0.2, 0.2]  # Changed X from 0 to -0.7
+    trunk_center = [-0.1, -0.2, 0.2]
     
     # Create simplified trunk (just one face)
     trunk_vertices = [
@@ -364,15 +416,15 @@ def createSmallChristmasTree():
     
     tree_triangles.extend([trunk_tri1, trunk_tri2])
     
-    # Create the tree tiers - simpler structure with fewer tiers
-    num_tiers = 3  # Reduced from 4
+    # Create the tree tiers
+    num_tiers = 3
     tree_base = [trunk_center[0], trunk_center[1] + trunk_height, trunk_center[2]]
-    max_radius = 0.18  # Reduced from 0.3
-    tree_height = 0.45  # Reduced from 0.8
+    max_radius = 0.18
+    tree_height = 0.45
     tier_height = tree_height/num_tiers
     
-    # Fewer sides for simpler geometry
-    num_sides = 6  # Reduced from 8
+
+    num_sides = 6
     
     for tier in range(num_tiers):
         tier_base_y = tree_base[1] + (tier_height * tier)
