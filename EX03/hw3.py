@@ -109,51 +109,61 @@ def ConstructReflectiveRay(ray, obj, hitP):
     return Ray(hitP, reflected(ray.direction, obj.getNormal(hitP)))
 
 def ConstructRefractiveRay(ray, obj, hitP):
-    return Ray(hitP-obj.getNormal(hitP), ray.direction)
+    offset = obj.getNormal(hitP)
+    if isinstance(obj, Sphere):
+        offset *= 0.1*obj.radius
+    return Ray(hitP-offset, ray.direction)
 
 
 def your_own_scene():
-    camera = np.array([0,0.7,1.5])
+    camera = np.array([0.5,0.1,4])
 
-    globe = Sphere([0, 0.4, 0.2],0.5)
+    globe = Sphere([0.05, 0, 0.1],0.93)
     globe.set_material(
         ambient=[1, 1, 1],
-        diffuse=[0.1, 0.1, 0.1], 
+        diffuse=[0, 0, 0], 
         specular=[0, 0, 0],
-        shininess=100,
+        shininess=0,
         reflection=0.0,
-        refraction=1.0
+        refraction=1
     )
 
-    snow_bottom = Sphere([0, 0.2, 0.2],0.2)
-    snow_bottom.set_material(
-        ambient=[1, 1, 1],
+    plane = Plane([0,1,0], [0,-0.3,0])
+    plane.set_material(
+        ambient=[1, 1, 1], 
         diffuse=[1, 1, 1], 
-        specular=[1, 1, 1],
-        shininess=10,
-        reflection= 0.0,
-        refraction= 0.0
+        specular=[1, 1, 1], 
+        shininess=0, 
+        reflection = 0
     )
-    snow_middle = Sphere([0, 0.5, 0.2],0.15)
-    snow_middle.set_material(
-        ambient=[1, 1, 1],
-        diffuse=[1, 1, 1], 
-        specular=[0, 0, 0],
-        shininess=0,
-        reflection= 0.0,
-        refraction= 0.0
-    )
-    snow_top = Sphere([0, 0.72, 0.2],0.1)
-    snow_top.set_material(
-        ambient=[1, 1, 1],
-        diffuse=[1, 1, 1], 
-        specular=[0, 0, 0],
-        shininess=0,
-        reflection= 0.0,
-        refraction= 0.0
-    )
+    
+    background = Plane([0,0,1], [0,0,-3])
+    background.set_material(
+        ambient=[0.05, 0.05, 0.3], 
+        diffuse=[0.05, 0.1, 0.3], 
+        specular=[0.1, 0.1, 0.3], 
+        shininess=1000, 
+        reflection=0.2)
+    
+    snowflakes = createSnowFlakes()
+    snowMan = createSnowMan()
+    xmasTree = createChristmasTree()
+    smallTree = createSmallChristmasTree()
+
+    #objects = [globe, plane, background] + snowflakes + snowMan + xmasTree
+    #objects = [globe, plane, background] + xmasTree
+    objects = [globe, plane, background] + snowMan + smallTree
+
+    light1 = PointLight(intensity= np.array([1, 1, 1]),position=np.array([0,1,1]),kc=0.4,kl=0.4,kq=0.4)    
+    light2 = PointLight(intensity= np.array([1, 1, 1]),position=np.array([-0.5, 0, 0]),kc=0.1,kl=0.1,kq=0.1) 
+
+    lights =  [light1]
+    
+    return camera, lights, objects
+
+def createSnowFlakes():
     snowflakes = []
-    num_flakes = 200  # Adjust number of snowflakes
+    num_flakes = 10  # Adjust number of snowflakes
 
     # Globe center and radius for reference
     globe_center = np.array([0, 0.4, 0.2])
@@ -185,30 +195,186 @@ def your_own_scene():
         )
         snowflakes.append(snowflake)
 
-    plane = Plane([0,1,0], [0,-0.3,0])
-    plane.set_material(
-        ambient=[0.2, 0.2, 0.2], 
-        diffuse=[0.2, 0.2, 0.2], 
-        specular=[0, 0, 0], 
-        shininess=0, 
-        reflection = 0
+    return snowflakes
+
+def createSnowMan():
+    snowMan = []
+    snow_bottom = Sphere([-0.5, -0.1, 0.2],0.2)
+    snow_bottom.set_material(
+        ambient=[1, 1, 1],
+        diffuse=[1, 1, 1], 
+        specular=[1, 1, 1],
+        shininess=10,
+        reflection= 0.0,
+        refraction= 0.0
     )
+    snowMan.append(snow_bottom)
+    snow_middle = Sphere([-0.5, 0.2, 0.2],0.15)
+    snow_middle.set_material(
+        ambient=[1, 1, 1],
+        diffuse=[1, 1, 1], 
+        specular=[0, 0, 0],
+        shininess=0,
+        reflection= 0.0,
+        refraction= 0.0
+    )
+    snowMan.append(snow_middle)
+    snow_top = Sphere([-0.5, 0.43, 0.2],0.1)
+    snow_top.set_material(
+        ambient=[1, 1, 1],
+        diffuse=[1, 1, 1], 
+        specular=[0, 0, 0],
+        shininess=0,
+        reflection= 0.0,
+        refraction= 0.0
+    )
+    snowMan.append(snow_top)
+    return snowMan
+
+def createChristmasTree():
+    tree_triangles = []
+    trunk_color = [0.55, 0.27, 0.07]  # Brown
+    tree_color = [0.0, 0.5, 0.0]      # Green
     
-    background = Plane([0,0,1], [0,0,-3])
-    background.set_material(
-        ambient=[0.01, 0.01, 0.05], 
-        diffuse=[0.2, 0.2, 0.2], 
-        specular=[0, 0, 0], 
-        shininess=1000, 
-        reflection=0)
-
-
-    objects = [globe, snow_bottom, snow_middle, snow_top, plane, background] + snowflakes
-
-    light1 = PointLight(intensity= np.array([1, 1, 1]),position=np.array([0,1,1]),kc=0.4,kl=0.4,kq=0.4)    
-    light2 = PointLight(intensity= np.array([1, 1, 1]),position=np.array([0, 0, 0]),kc=0.1,kl=0.1,kq=0.1) 
-
-    lights = [light1, light2]
+    # Tree trunk (simple rectangular prism made of triangles)
+    trunk_width = 0.08
+    trunk_height = 0.2
+    trunk_center = [0.35, -0.2, 0.2]  # Position near snowman
     
+    # Create trunk using triangles (simplified as a rectangular structure)
+    trunk_vertices = [
+        # Front face
+        [trunk_center[0]-trunk_width/2, trunk_center[1], trunk_center[2]+trunk_width/2],
+        [trunk_center[0]+trunk_width/2, trunk_center[1], trunk_center[2]+trunk_width/2],
+        [trunk_center[0]+trunk_width/2, trunk_center[1]+trunk_height, trunk_center[2]+trunk_width/2],
+        [trunk_center[0]-trunk_width/2, trunk_center[1]+trunk_height, trunk_center[2]+trunk_width/2],
+    ]
     
-    return camera, lights, objects
+    # Create triangles for front face
+    trunk_tri1 = Triangle(trunk_vertices[0], trunk_vertices[1], trunk_vertices[2])
+    trunk_tri1.set_material(trunk_color, trunk_color, [0.1, 0.1, 0.1], 10, 0.0)
+    trunk_tri2 = Triangle(trunk_vertices[0], trunk_vertices[2], trunk_vertices[3])
+    trunk_tri2.set_material(trunk_color, trunk_color, [0.1, 0.1, 0.1], 10, 0.0)
+    
+    tree_triangles.extend([trunk_tri1, trunk_tri2])
+    
+    # Create the tree tiers (multiple cones stacked)
+    num_tiers = 4
+    tree_base = [trunk_center[0], trunk_center[1] + trunk_height, trunk_center[2]]
+    max_radius = 0.3
+    tree_height = 0.8
+    tier_height = tree_height/num_tiers
+    
+    for tier in range(num_tiers):
+        tier_base_y = tree_base[1] + (tier_height * tier)
+        tier_top_y = tree_base[1] + (tier_height * (tier + 1))
+        tier_radius = max_radius * (1 - tier/num_tiers)
+        
+        # Create circular arrangement of triangles
+        num_sides = 8  # Octagonal pyramid for each tier
+        for i in range(num_sides):
+            angle1 = 2 * np.pi * i / num_sides
+            angle2 = 2 * np.pi * (i+1) / num_sides
+            
+            # Calculate vertices for this triangle
+            base1 = [
+                tree_base[0] + tier_radius * np.cos(angle1),
+                tier_base_y,
+                tree_base[2] + tier_radius * np.sin(angle1)
+            ]
+            
+            base2 = [
+                tree_base[0] + tier_radius * np.cos(angle2),
+                tier_base_y,
+                tree_base[2] + tier_radius * np.sin(angle2)
+            ]
+            
+            top = [tree_base[0], tier_top_y, tree_base[2]]
+            
+            # Create and add the triangle
+            tree_tri = Triangle(base1, base2, top)
+            tree_tri.set_material(
+                tree_color, 
+                tree_color, 
+                [0.1, 0.1, 0.1], 
+                30, 
+                0.0
+            )
+            tree_triangles.append(tree_tri)
+    
+    return tree_triangles
+
+def createSmallChristmasTree():
+    tree_triangles = []
+    trunk_color = [0.55, 0.27, 0.07]  # Same brown as original
+    tree_color = [0.0, 0.5, 0.0]      # Same green as original
+    
+    # Smaller dimensions
+    trunk_width = 0.05  # Reduced from 0.08
+    trunk_height = 0.12  # Reduced from 0.2
+    
+    # Position on the other side of snowman
+    trunk_center = [-0.1, -0.2, 0.2]  # Changed X from 0 to -0.7
+    
+    # Create simplified trunk (just one face)
+    trunk_vertices = [
+        [trunk_center[0]-trunk_width/2, trunk_center[1], trunk_center[2]+trunk_width/2],
+        [trunk_center[0]+trunk_width/2, trunk_center[1], trunk_center[2]+trunk_width/2],
+        [trunk_center[0]+trunk_width/2, trunk_center[1]+trunk_height, trunk_center[2]+trunk_width/2],
+        [trunk_center[0]-trunk_width/2, trunk_center[1]+trunk_height, trunk_center[2]+trunk_width/2],
+    ]
+    
+    # Create trunk triangles - same as original
+    trunk_tri1 = Triangle(trunk_vertices[0], trunk_vertices[1], trunk_vertices[2])
+    trunk_tri1.set_material(trunk_color, trunk_color, [0.1, 0.1, 0.1], 10, 0.0)
+    trunk_tri2 = Triangle(trunk_vertices[0], trunk_vertices[2], trunk_vertices[3])
+    trunk_tri2.set_material(trunk_color, trunk_color, [0.1, 0.1, 0.1], 10, 0.0)
+    
+    tree_triangles.extend([trunk_tri1, trunk_tri2])
+    
+    # Create the tree tiers - simpler structure with fewer tiers
+    num_tiers = 3  # Reduced from 4
+    tree_base = [trunk_center[0], trunk_center[1] + trunk_height, trunk_center[2]]
+    max_radius = 0.18  # Reduced from 0.3
+    tree_height = 0.45  # Reduced from 0.8
+    tier_height = tree_height/num_tiers
+    
+    # Fewer sides for simpler geometry
+    num_sides = 6  # Reduced from 8
+    
+    for tier in range(num_tiers):
+        tier_base_y = tree_base[1] + (tier_height * tier)
+        tier_top_y = tree_base[1] + (tier_height * (tier + 1))
+        tier_radius = max_radius * (1 - tier/num_tiers)
+        
+        for i in range(num_sides):
+            angle1 = 2 * np.pi * i / num_sides
+            angle2 = 2 * np.pi * (i+1) / num_sides
+            
+            # Calculate vertices
+            base1 = [
+                tree_base[0] + tier_radius * np.cos(angle1),
+                tier_base_y,
+                tree_base[2] + tier_radius * np.sin(angle1)
+            ]
+            
+            base2 = [
+                tree_base[0] + tier_radius * np.cos(angle2),
+                tier_base_y,
+                tree_base[2] + tier_radius * np.sin(angle2)
+            ]
+            
+            top = [tree_base[0], tier_top_y, tree_base[2]]
+            
+            # Create triangle with the same color as original
+            tree_tri = Triangle(base1, base2, top)
+            tree_tri.set_material(
+                tree_color, 
+                tree_color, 
+                [0.1, 0.1, 0.1], 
+                30, 
+                0.0
+            )
+            tree_triangles.append(tree_tri)
+    
+    return tree_triangles
