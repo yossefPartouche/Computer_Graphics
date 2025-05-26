@@ -14,3 +14,7 @@ dist/
 build/
 EX03/HW3_330073489_209954445.zip
 Screenshot 2025-05-21 at 17.27.24.png
+*.pdf
+*.docx
+.DS_Store
+All_Unit_png
